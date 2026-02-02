@@ -1,6 +1,6 @@
 # UrlShortener
 
-Minimal URL shortener built with ASP.NET Core and Orleans.
+Minimal URL shortener built with ASP.NET Core and Orleans
 
 ## Prerequisites
 - .NET SDK 8+
