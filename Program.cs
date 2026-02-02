@@ -2,6 +2,7 @@ using Orleans.Runtime;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Orleans for in-process clustering and in-memory grain storage.
 builder.Host.UseOrleans(siloBuilder =>
 {
     siloBuilder.UseLocalhostClustering();
@@ -10,8 +11,10 @@ builder.Host.UseOrleans(siloBuilder =>
 
 using var app = builder.Build();
 
+// Basic health endpoint.
 app.MapGet("/", () => "Hello World!");
 
+// Create a shortened URL from a full URL.
 app.MapGet("/shorten",
     static async (IGrainFactory grains, HttpRequest request, string url) =>
     {
@@ -27,16 +30,16 @@ app.MapGet("/shorten",
                 """);
         }
 
-        // Create a unique, short ID
+        // Create a unique, short ID for the requested URL.
         var shortenedRouteSegment = Guid.NewGuid().GetHashCode().ToString("X");
 
-        // Create and persist a grain with the shortened ID and full URL
+        // Create and persist a grain with the shortened ID and full URL.
         var shortenerGrain =
             grains.GetGrain<IUrlShortenerGrain>(shortenedRouteSegment);
 
         await shortenerGrain.SetUrl(url);
 
-        // Return the shortened URL for later use
+        // Return the shortened URL for later use.
         var resultBuilder = new UriBuilder(host)
         {
             Path = $"/go/{shortenedRouteSegment}"
@@ -45,11 +48,11 @@ app.MapGet("/shorten",
         return Results.Ok(resultBuilder.Uri);
     });
 
-// handles redirects
+// Handle redirects for shortened URLs.
 app.MapGet("/go/{shortenedRouteSegment:required}",
     static async (IGrainFactory grains, string shortenedRouteSegment) =>
     {
-        // Retrieve the grain using the shortened ID and url to the original URL
+        // Retrieve the grain using the shortened ID to the original URL.
         var shortenerGrain =
             grains.GetGrain<IUrlShortenerGrain>(shortenedRouteSegment);
 
@@ -63,6 +66,7 @@ app.MapGet("/go/{shortenedRouteSegment:required}",
 
 app.Run();
 
+// Grain contract for storing and retrieving URLs by short code.
 public interface IUrlShortenerGrain : IGrainWithStringKey
 {
     Task SetUrl(string fullUrl);
@@ -70,6 +74,7 @@ public interface IUrlShortenerGrain : IGrainWithStringKey
     Task<string> GetUrl();
 }
 
+// Grain implementation backed by Orleans persistent state.
 public sealed class UrlShortenerGrain(
     [PersistentState(
         stateName: "url",
@@ -79,6 +84,7 @@ public sealed class UrlShortenerGrain(
 {
     private KeyValuePair<string, string> _cache;
 
+    // Save the full URL for this grain key.
     public async Task SetUrl(string fullUrl)
     {
         state.State = new()
@@ -90,6 +96,7 @@ public sealed class UrlShortenerGrain(
         await state.WriteStateAsync();
     }
 
+    // Return the stored URL for this grain key.
     public Task<string> GetUrl() =>
         Task.FromResult(_cache.Value);
 }
@@ -97,9 +104,11 @@ public sealed class UrlShortenerGrain(
 [GenerateSerializer]
 public sealed record class UrlDetails
 {
+    // The full original URL.
     [Id(0)]
     public string FullUrl { get; set; } = "";
 
+    // The shortened route segment used as the grain key.
     [Id(1)]
     public string ShortenedRouteSegment { get; set; } = "";
 }
