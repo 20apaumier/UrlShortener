@@ -17,5 +17,6 @@ jobs:
       - uses: 20apaumier/doc-agent@v1.0.2
         with:
           docs_title: ${{ github.repository }} Docs
+          fail_on_ai_error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
